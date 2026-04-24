@@ -1,0 +1,179 @@
+// Modelo alineado al ERD MIRODAGEJE (departamentos, puestos, empleados, asistencias,
+// incidencias, usuarios, nominas, detalle_nomina) + capacitación (expediente / historial).
+// SQL Server (Prisma): los "ENUM" del diagrama se modelan como VARCHAR por compatibilidad.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlserver"
+  url      = env("DATABASE_URL")
+}
+
+model Departamento {
+  idDepartamento Int         @id @default(autoincrement()) @map("id_departamento")
+  nombre         String      @db.VarChar(100)
+  empleados      Empleado[]
+  puestos        Puesto[]
+
+  @@map("departamentos")
+}
+
+model Puesto {
+  idPuesto         Int          @id @default(autoincrement()) @map("id_puesto")
+  nombre           String       @db.VarChar(100)
+  descripcion      String?      @db.Text
+  idDepartamento   Int          @map("id_departamento")
+  departamento     Departamento @relation(fields: [idDepartamento], references: [idDepartamento])
+  empleados        Empleado[]
+
+  @@map("puestos")
+}
+
+model Empleado {
+  idEmpleado      Int      @id @default(autoincrement()) @map("id_empleado")
+  nombre          String   @db.VarChar(100)
+  apellido        String   @db.VarChar(100)
+  cedula          String   @unique @db.VarChar(20)
+  email           String   @unique @db.VarChar(150)
+  telefono        String?  @db.VarChar(20)
+  fechaIngreso    DateTime @map("fecha_ingreso") @db.Date
+  idDepartamento  Int      @map("id_departamento")
+  idPuesto        Int      @map("id_puesto")
+  salarioBase     Decimal  @map("salario_base") @db.Decimal(10, 2)
+  /// Valores típicos: ACTIVO | INACTIVO
+  estado          String   @db.VarChar(20)
+
+  departamento Departamento @relation(fields: [idDepartamento], references: [idDepartamento], onUpdate: NoAction, onDelete: NoAction)
+  puesto       Puesto       @relation(fields: [idPuesto], references: [idPuesto])
+
+  asistencias            Asistencia[]
+  incidencias            Incidencia[]
+  usuarios                 Usuario[]
+  detallesNomina            DetalleNomina[]
+  historialesCapacitacion   HistorialCapacitacion[]
+  asignacionesBonificacion  AsignacionBonificacion[]
+
+  @@map("empleados")
+}
+
+/// Catálogo de bonos (nombre / descripción); las asignaciones a empleados van en AsignacionBonificacion.
+model TipoBonificacion {
+  idTipoBonificacion Int                      @id @default(autoincrement()) @map("id_tipo_bonificacion")
+  nombre             String                   @db.VarChar(120)
+  descripcion        String?                  @db.Text
+  /// ACTIVO | INACTIVO
+  activo             String                   @default("ACTIVO") @db.VarChar(20)
+  asignaciones       AsignacionBonificacion[]
+
+  @@map("tipos_bonificacion")
+}
+
+model AsignacionBonificacion {
+  idAsignacion       Int              @id @default(autoincrement()) @map("id_asignacion")
+  idTipoBonificacion Int              @map("id_tipo_bonificacion")
+  idEmpleado         Int              @map("id_empleado")
+  monto              Decimal          @db.Decimal(10, 2)
+  fecha              DateTime         @db.Date
+  notas              String?          @db.VarChar(500)
+
+  tipoBonificacion TipoBonificacion @relation(fields: [idTipoBonificacion], references: [idTipoBonificacion])
+  empleado         Empleado         @relation(fields: [idEmpleado], references: [idEmpleado], onDelete: Cascade)
+
+  @@map("asignaciones_bonificacion")
+}
+
+model Asistencia {
+  idAsistencia Int      @id @default(autoincrement()) @map("id_asistencia")
+  idEmpleado   Int      @map("id_empleado")
+  fecha        DateTime @db.Date
+  horaEntrada  String?  @map("hora_entrada") @db.VarChar(8)
+  horaSalida   String?  @map("hora_salida") @db.VarChar(8)
+  /// NORMAL | AUSENTE | RETARDO | JUSTIFICADO
+  estado       String   @db.VarChar(20)
+
+  empleado Empleado @relation(fields: [idEmpleado], references: [idEmpleado], onDelete: Cascade)
+
+  @@map("asistencias")
+}
+
+model Incidencia {
+  idIncidencia Int      @id @default(autoincrement()) @map("id_incidencia")
+  idEmpleado   Int      @map("id_empleado")
+  /// VACACIONES | PERMISO | LICENCIA_MEDICA | FALTA | OTRO
+  tipo         String   @db.VarChar(30)
+  fechaInicio  DateTime @map("fecha_inicio") @db.Date
+  fechaFin     DateTime @map("fecha_fin") @db.Date
+  descripcion  String?  @db.Text
+
+  empleado Empleado @relation(fields: [idEmpleado], references: [idEmpleado], onDelete: Cascade)
+
+  @@map("incidencias")
+}
+
+/// La contraseña se guarda como hash (bcrypt).
+model Usuario {
+  idUsuario    Int    @id @default(autoincrement()) @map("id_usuario")
+  idEmpleado   Int    @map("id_empleado")
+  usuario      String @unique @db.VarChar(50)
+  contrasena   String @map("contrasena") @db.VarChar(255)
+  /// ADMIN | RRHH | EMPLEADO
+  rol          String @db.VarChar(20)
+
+  empleado Empleado @relation(fields: [idEmpleado], references: [idEmpleado], onDelete: Cascade)
+
+  @@map("usuarios")
+}
+
+model Nomina {
+  idNomina    Int      @id @default(autoincrement()) @map("id_nomina")
+  fechaInicio DateTime @map("fecha_inicio") @db.Date
+  fechaFin    DateTime @map("fecha_fin") @db.Date
+  fechaPago   DateTime @map("fecha_pago") @db.Date
+
+  detalles DetalleNomina[]
+
+  @@map("nominas")
+}
+
+model DetalleNomina {
+  idDetalle      Int     @id @default(autoincrement()) @map("id_detalle")
+  idNomina       Int     @map("id_nomina")
+  idEmpleado     Int     @map("id_empleado")
+  salarioBase    Decimal @map("salario_base") @db.Decimal(10, 2)
+  bonificaciones Decimal @db.Decimal(10, 2)
+  deducciones    Decimal @db.Decimal(10, 2)
+  salarioNeto    Decimal @map("salario_neto") @db.Decimal(10, 2)
+
+  nomina   Nomina   @relation(fields: [idNomina], references: [idNomina], onDelete: Cascade)
+  empleado Empleado @relation(fields: [idEmpleado], references: [idEmpleado])
+
+  @@map("detalle_nomina")
+}
+
+model CursoCapacitacion {
+  idCurso       Int                     @id @default(autoincrement()) @map("id_curso")
+  nombre        String                  @db.VarChar(200)
+  descripcion   String?                 @db.Text
+  duracionHoras Int                     @default(0) @map("duracion_horas")
+  historiales   HistorialCapacitacion[]
+
+  @@map("cursos_capacitacion")
+}
+
+model HistorialCapacitacion {
+  idHistorial    Int      @id @default(autoincrement()) @map("id_historial")
+  idEmpleado     Int      @map("id_empleado")
+  idCurso        Int      @map("id_curso")
+  fechaInicio    DateTime @map("fecha_inicio") @db.Date
+  fechaFin       DateTime? @map("fecha_fin") @db.Date
+  calificacion   Decimal? @db.Decimal(5, 2)
+  estado         String   @db.VarChar(30) @default("PROGRAMADO")
+  certificadoUrl String?  @map("certificado_url") @db.VarChar(500)
+
+  empleado Empleado          @relation(fields: [idEmpleado], references: [idEmpleado], onDelete: Cascade)
+  curso    CursoCapacitacion @relation(fields: [idCurso], references: [idCurso])
+
+  @@map("historial_capacitacion")
+}
