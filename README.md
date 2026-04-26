@@ -147,6 +147,7 @@ Rutas API principales (todas bajo prefijo `/api`): `auth`, `departamentos`, `pue
 
 ## Pruebas
 
+
 ```bash
 npm run test
 ```
