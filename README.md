@@ -146,7 +146,6 @@ Usuarios de demostración (semilla): exactamente **tres** inicios de sesión, ca
 Rutas API principales (todas bajo prefijo `/api`): `auth`, `departamentos`, `puestos`, `empleados`, `asistencias`, `incidencias`, `nominas`, `capacitacion`, `usuarios`, `bonificaciones`.
 
 ## Pruebas
-
 ```bash
 npm run test
 ```
