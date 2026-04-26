@@ -23,16 +23,19 @@ type HistorialRow = {
 };
 
 export function CapacitacionesPage() {
+  // --- ESTADO GLOBAL Y DATOS DE LA API ---
   const [cursos, setCursos] = useState<Curso[]>([]);
   const [historial, setHistorial] = useState<HistorialRow[]>([]);
   const [empleados, setEmpleados] = useState<EmpleadoOpt[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  // --- ESTADO DE FORMULARIOS (Nuevo Curso) ---
   const [cn, setCn] = useState("");
   const [cd, setCd] = useState("");
   const [ch, setCh] = useState("8");
 
+  // --- ESTADO DE FORMULARIOS (Asignación/Historial) ---
   const [filtroEmp, setFiltroEmp] = useState("");
   const [hEmp, setHEmp] = useState("");
   const [hCurso, setHCurso] = useState("");
@@ -41,6 +44,9 @@ export function CapacitacionesPage() {
   const [hEstado, setHEstado] = useState("PROGRAMADO");
   const [hCal, setHCal] = useState("");
 
+  /**
+   * Carga solamente y exclusivamente el catálogo de cursos disponibles.
+   */
   const loadCursos = async (): Promise<void> => {
     const c = await api<Curso[]>("/capacitacion/cursos");
     setCursos(c);
@@ -124,6 +130,7 @@ export function CapacitacionesPage() {
     }
   };
 
+  // Variables auxiliares de renderizado para simplificar el JSX
   const session = getSessionUser();
   const esStaff = session?.rol === "ADMIN" || session?.rol === "RRHH";
 
@@ -141,6 +148,7 @@ export function CapacitacionesPage() {
       </div>
       {error ? <div className="error">{error}</div> : null}
 
+      {/* BLOQUE 1: CATÁLOGO DE CURSOS (Lectura para todos, Escritura para Staff) */}
       <div className="card" style={{ marginBottom: "1rem" }}>
         <h2 style={{ marginTop: 0, fontSize: "1.05rem" }}>Catálogo de cursos</h2>
         <div style={{ overflowX: "auto" }}>
@@ -164,6 +172,7 @@ export function CapacitacionesPage() {
           </table>
         </div>
 
+        {/* BLOQUE 2: SEGUIMIENTO / HISTORIAL (Filtrado por permisos) */}
         {esStaff ? (
           <form onSubmit={(e) => void addCurso(e)} className="grid grid-2" style={{ marginTop: "1rem" }}>
             <div className="field">
@@ -204,6 +213,7 @@ export function CapacitacionesPage() {
           </div>
         ) : null}
 
+        {/* Registro de una nueva instancia de capacitación */}
         {esStaff ? (
           <form onSubmit={(e) => void addHistorial(e)} className="grid grid-2" style={{ marginTop: "1rem", marginBottom: "1rem" }}>
             <div className="field">
@@ -252,6 +262,7 @@ export function CapacitacionesPage() {
           </form>
         ) : null}
 
+        {/* Listado del historial */}
         <div style={{ overflowX: "auto" }}>
           <table>
             <thead>
