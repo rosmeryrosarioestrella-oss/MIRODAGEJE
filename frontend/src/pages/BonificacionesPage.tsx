@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api } from "../api";
 
+/** --- DEFINICIÓN DE TIPOS --- */
 type TipoBonificacion = {
   idTipoBonificacion: number;
   nombre: string;
@@ -21,6 +22,7 @@ type Asignacion = {
 
 type EmpleadoOpt = { idEmpleado: number; nombre: string; apellido: string };
 
+// Tipos auxiliares para manejar la edición de registros existentes sin afectar el estado principal de una vez
 type TipoDraft = { idTipoBonificacion: number; nombre: string; descripcion: string; activo: string };
 type AsigDraft = {
   idAsignacion: number;
@@ -31,6 +33,7 @@ type AsigDraft = {
   notas: string;
 };
 
+/** --- Utilidades de formato --- */
 function money(n: string | number): string {
   const v = typeof n === "string" ? parseFloat(n) : n;
   if (Number.isNaN(v)) return "—";
@@ -46,11 +49,13 @@ function todayISO(): string {
 }
 
 export function BonificacionesPage() {
+  // --- ESTADO DE DATOS (Colecciones) ---
   const [tipos, setTipos] = useState<TipoBonificacion[]>([]);
   const [empleados, setEmpleados] = useState<EmpleadoOpt[]>([]);
   const [asignaciones, setAsignaciones] = useState<Asignacion[]>([]);
   const [filtroEmpleado, setFiltroEmpleado] = useState("");
 
+  // --- ESTADO DE FORMULARIOS (Nuevos registros) ---
   const [ntNombre, setNtNombre] = useState("");
   const [ntDesc, setNtDesc] = useState("");
 
@@ -60,12 +65,16 @@ export function BonificacionesPage() {
   const [naFecha, setNaFecha] = useState(todayISO);
   const [naNotas, setNaNotas] = useState("");
 
+  // --- ESTADO DE EDICIÓN (Borradores para edición en línea) ---
   const [tipoDraft, setTipoDraft] = useState<TipoDraft | null>(null);
   const [asigDraft, setAsigDraft] = useState<AsigDraft | null>(null);
 
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  /** --- CARGA DE DATOS --- */
+  
+  // Carga catálogos básicos (Tipos y Empleados como dice el const) de forma concurrente
   const loadTiposYEmpleados = useCallback(async (): Promise<void> => {
     const [t, e] = await Promise.all([
       api<TipoBonificacion[]>("/bonificaciones/tipos"),
@@ -75,6 +84,7 @@ export function BonificacionesPage() {
     setEmpleados(Array.isArray(e) ? e : []);
   }, []);
 
+  // Carga el historial de bonos, permitiendo filtrar por empleado
   const loadAsignaciones = useCallback(async (): Promise<void> => {
     const q =
       filtroEmpleado.trim() !== ""
@@ -84,6 +94,7 @@ export function BonificacionesPage() {
     setAsignaciones(Array.isArray(a) ? a : []);
   }, [filtroEmpleado]);
 
+  // Disparadores de carga inicial y por filtros
   useEffect(() => {
     void (async () => {
       try {
@@ -106,6 +117,7 @@ export function BonificacionesPage() {
     })();
   }, [filtroEmpleado, loadAsignaciones]);
 
+  /** --- ACCIONES: GESTIÓN DE TIPOS DE BONO --- */
   const addTipo = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     if (!ntNombre.trim()) return;
@@ -160,9 +172,11 @@ export function BonificacionesPage() {
     }
   };
 
+  /** --- ACCIONES: GESTIÓN DE ASIGNACIONES (ASIGNAR BONOS) --- */
   const addAsignacion = async (e: FormEvent): Promise<void> => {
     e.preventDefault();
     if (!naEmp || !naTipo || !naMonto.trim()) return;
+    // Normalización de moneda (convierte coma en punto)
     const m = Number(naMonto.replace(",", "."));
     if (Number.isNaN(m) || m <= 0) {
       setError("Indique un monto mayor a cero.");
@@ -233,7 +247,9 @@ export function BonificacionesPage() {
     }
   };
 
+  // --- LÓGICA DE FILTRADO PARA RENDERIZADO ---
   const tiposActivos = tipos.filter((t) => t.activo === "ACTIVO");
+  // Asegura que al editar, el tipo actual aparezca en la lista aunque se haya desactivado después
   const tiposParaEditarAsig = (draft: AsigDraft | null) =>
     tipos.filter((t) => t.activo === "ACTIVO" || (draft != null && t.idTipoBonificacion === draft.idTipoBonificacion));
 
@@ -247,6 +263,7 @@ export function BonificacionesPage() {
       </div>
       {error ? <div className="error">{error}</div> : null}
 
+      {/* COLUMNA IZQUIERDA: GESTIÓN DE TIPOS (Catálogo) */}
       <div className="grid grid-2" style={{ marginBottom: "1rem" }}>
         <div className="card">
           <h2 style={{ marginTop: 0, fontSize: "1.05rem" }}>Tipos de bonificación</h2>
@@ -266,6 +283,7 @@ export function BonificacionesPage() {
             <label style={{ marginTop: "0.5rem" }}>Descripción (opcional)</label>
             <input value={ntDesc} onChange={(e) => setNtDesc(e.target.value)} />
           </form>
+          {/* Listado dinámico de tipos con edición en línea */}
           <div style={{ display: "flex", flexDirection: "column", gap: "0.65rem" }}>
             {tipos.map((t) =>
               tipoDraft?.idTipoBonificacion === t.idTipoBonificacion ? (
